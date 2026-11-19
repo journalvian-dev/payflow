@@ -39,7 +39,7 @@ class OutboxRelayTest {
     private final AppProperties properties = new AppProperties(
             new AppProperties.Security("api-key"),
             new AppProperties.Partner("http://localhost:8080", "client", "secret", Duration.ofSeconds(2)),
-            new AppProperties.Reconciliation(true, 30_000, Duration.ofSeconds(5)),
+            new AppProperties.Reconciliation(true, 30_000, Duration.ofSeconds(5), Duration.ofMinutes(2)),
             new AppProperties.Sandbox(false),
             new AppProperties.Outbox(true, 5_000, Duration.ofDays(7))
     );

@@ -45,4 +45,12 @@ public class PaymentPersistenceAdapter implements PaymentRepository {
                 .map(PaymentJpaEntity::toDomain)
                 .toList();
     }
+
+    @Override
+    public List<Payment> findStalePending(Instant updatedBefore, int limit) {
+        return jpaRepository.findStale(PaymentStatus.PENDING, updatedBefore, PageRequest.of(0, limit))
+                .stream()
+                .map(PaymentJpaEntity::toDomain)
+                .toList();
+    }
 }

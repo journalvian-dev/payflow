@@ -32,7 +32,8 @@ public record AppProperties(
     public record Reconciliation(
             boolean enabled,
             long intervalMs,
-            Duration inDoubtAfter
+            Duration inDoubtAfter,
+            @DefaultValue("2m") Duration pendingAfter
     ) {
     }
 

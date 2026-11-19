@@ -49,6 +49,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "app.partner.timeout=500ms",
         "app.reconciliation.enabled=false",
         "app.reconciliation.in-doubt-after=0s",
+        "app.reconciliation.pending-after=0s",
         // Relay tidak perlu jalan di test API; kita hanya memverifikasi event ikut tersimpan.
         "app.outbox.enabled=false",
         // Jangan sampai circuit breaker terbuka karena akumulasi skenario gagal antar test.
@@ -227,6 +228,58 @@ class PaymentApiIntegrationTest {
                 Instant.now().getEpochSecond(), "v1=deadbeef")
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("INVALID_SIGNATURE"));
+    }
+
+    @Test
+    void reconciliation_mengirim_ulang_charge_untuk_payment_yang_tertahan_pending() throws Exception {
+        // Payment dibuat langsung di DB dengan status PENDING: mensimulasikan proses
+        // yang mati setelah simpan tapi sebelum sempat memanggil partner.
+        UUID id = UUID.randomUUID();
+        String reference = "PAY-STUCK-" + id.toString().substring(0, 8);
+        jdbcTemplate.update("""
+                INSERT INTO payments (id, reference, customer_id, amount, currency, status,
+                                      created_at, updated_at, version)
+                VALUES (?, ?, ?, ?, ?, 'PENDING', ?, ?, 0)
+                """,
+                id, reference, "CUST-1", new java.math.BigDecimal("100000.00"), "IDR",
+                java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC).minusMinutes(10),
+                java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC).minusMinutes(10));
+
+        stubPartnerSuccess("PTR-STUCK");
+
+        int recovered = reconcilePaymentsUseCase.reconcile();
+        assertThat(recovered).isGreaterThanOrEqualTo(1);
+
+        // Yang dikirim harus charge baru, bukan query status: charge-nya belum pernah terkirim.
+        PARTNER.verify(postRequestedFor(urlEqualTo(PARTNER_PATH)));
+
+        mockMvc.perform(get("/api/v1/payments/{id}", id)
+                        .header("X-Api-Key", API_KEY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.partnerReference").value("PTR-STUCK"));
+    }
+
+    @Test
+    void reconciliation_membiarkan_pending_tetap_pending_kalau_partner_masih_gagal() throws Exception {
+        UUID id = UUID.randomUUID();
+        jdbcTemplate.update("""
+                INSERT INTO payments (id, reference, customer_id, amount, currency, status,
+                                      created_at, updated_at, version)
+                VALUES (?, ?, ?, ?, ?, 'PENDING', ?, ?, 0)
+                """,
+                id, "PAY-STUCK-FAIL", "CUST-1", new java.math.BigDecimal("100000.00"), "IDR",
+                java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC).minusMinutes(10),
+                java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC).minusMinutes(10));
+
+        PARTNER.stubFor(post(urlEqualTo(PARTNER_PATH)).willReturn(aResponse().withStatus(500)));
+
+        reconcilePaymentsUseCase.reconcile();
+
+        mockMvc.perform(get("/api/v1/payments/{id}", id)
+                        .header("X-Api-Key", API_KEY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("IN_DOUBT"));
     }
 
     @Test

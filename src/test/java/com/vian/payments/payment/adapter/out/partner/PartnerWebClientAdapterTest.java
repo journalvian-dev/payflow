@@ -63,7 +63,7 @@ class PartnerWebClientAdapterTest {
         AppProperties properties = new AppProperties(
                 new AppProperties.Security("api-key"),
                 new AppProperties.Partner(server.baseUrl(), "client", SECRET, Duration.ofSeconds(1)),
-                new AppProperties.Reconciliation(true, 30_000, Duration.ofSeconds(5)),
+                new AppProperties.Reconciliation(true, 30_000, Duration.ofSeconds(5), Duration.ofMinutes(2)),
                 new AppProperties.Sandbox(false),
                 new AppProperties.Outbox(true, 5_000, Duration.ofDays(7))
         );

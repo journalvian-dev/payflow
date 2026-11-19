@@ -64,6 +64,9 @@ app:
     enabled: true
     interval-ms: 30000
     in-doubt-after: 5s
+    # PENDING yang lebih tua dari ini dianggap menggantung: prosesnya kemungkinan
+    # mati sebelum panggilan ke partner selesai.
+    pending-after: 2m
   sandbox:
     enabled: true
   outbox:

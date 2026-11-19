@@ -19,4 +19,11 @@ public interface PaymentRepository {
      * Kandidat reconciliation: payment IN_DOUBT yang sudah lama tidak berubah.
      */
     List<Payment> findStaleInDoubt(Instant updatedBefore, int limit);
+
+    /**
+     * Payment yang masih PENDING padahal sudah lewat batas wajar. Normalnya PENDING
+     * hanya hidup selama satu panggilan ke partner, jadi yang masih PENDING berarti
+     * prosesnya mati di tengah jalan dan charge-nya mungkin belum pernah terkirim.
+     */
+    List<Payment> findStalePending(Instant updatedBefore, int limit);
 }
